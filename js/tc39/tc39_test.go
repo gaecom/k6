@@ -440,7 +440,7 @@ func (ctx *tc39TestCtx) compile(base, name string) (*goja.Program, error) {
 		str := string(b)
 		compiler := ctx.compilerPool.Get()
 		defer ctx.compilerPool.Put(compiler)
-		prg, _, err = compiler.Compile(str, name, "", "", false, lib.CompatibilityModeExtended)
+		prg, _, err = compiler.Compile(str, name, false, false, lib.CompatibilityModeExtended)
 		if err != nil {
 			return nil, err
 		}
@@ -479,6 +479,7 @@ func (ctx *tc39TestCtx) runTC39Script(name, src string, includes []string, vm *g
 	}
 
 	var p *goja.Program
+<<<<<<< HEAD
 	compiler := ctx.compilerPool.Get()
 	defer ctx.compilerPool.Put(compiler)
 	p, _, origErr = compiler.Compile(src, name, "", "", false, lib.CompatibilityModeBase)
@@ -486,6 +487,13 @@ func (ctx *tc39TestCtx) runTC39Script(name, src string, includes []string, vm *g
 		src, _, err = compiler.Transform(src, name)
 		if err == nil {
 			p, _, err = compiler.Compile(src, name, "", "", false, lib.CompatibilityModeBase)
+=======
+	p, _, origErr = ctx.compiler.Compile(src, name, false, compiler.CompilerOptions{CompatibilityMode: lib.CompatibilityModeBase})
+	if origErr != nil {
+		src, _, err = ctx.compiler.Transform(src, name, nil)
+		if err == nil {
+			p, _, err = ctx.compiler.Compile(src, name, false, compiler.CompilerOptions{CompatibilityMode: lib.CompatibilityModeBase})
+>>>>>>> 5b319719 (Support sourcemaps from outside k6's babel)
 		}
 	} else {
 		err = origErr
