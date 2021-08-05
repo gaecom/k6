@@ -30,11 +30,11 @@ import (
 func TestParseURL(t *testing.T) {
 	t.Parallel()
 	testdata := map[string]Config{
-		"":                             {},
-		"dbname":                       {DB: null.StringFrom("dbname")},
-		"/dbname":                      {DB: null.StringFrom("dbname")},
-		"http://localhost:8086":        {Addr: null.StringFrom("http://localhost:8086")},
-		"http://localhost:8086/dbname": {Addr: null.StringFrom("http://localhost:8086"), DB: null.StringFrom("dbname")},
+		"":                                 {},
+		"bucketname":                       {Bucket: null.StringFrom("bucketname")},
+		"/bucketname":                      {Bucket: null.StringFrom("bucketname")},
+		"http://localhost:8086":            {Addr: null.StringFrom("http://localhost:8086")},
+		"http://localhost:8086/bucketname": {Addr: null.StringFrom("http://localhost:8086"), Bucket: null.StringFrom("bucketname")},
 	}
 	queries := map[string]struct {
 		Config Config
@@ -61,7 +61,7 @@ func TestParseURL(t *testing.T) {
 						assert.EqualError(t, err, qdata.Err)
 					} else {
 						expected2 := qdata.Config
-						expected2.DB = data.DB
+						expected2.Bucket = data.Bucket
 						expected2.Addr = data.Addr
 						assert.Equal(t, expected2, config)
 					}

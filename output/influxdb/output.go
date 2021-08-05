@@ -21,14 +21,16 @@
 package influxdb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
-	client "github.com/influxdata/influxdb1-client/v2"
+	client "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
 	"github.com/sirupsen/logrus"
-
 	"go.k6.io/k6/output"
 	"go.k6.io/k6/stats"
 )
@@ -51,16 +53,15 @@ const (
 type Output struct {
 	output.SampleBuffer
 
+	Client client.Client
+	Config Config
+
 	params          output.Params
 	periodicFlusher *output.PeriodicFlusher
-
-	Client    client.Client
-	Config    Config
-	BatchConf client.BatchPointsConfig
-
-	logger      logrus.FieldLogger
-	semaphoreCh chan struct{}
-	fieldKinds  map[string]FieldKind
+	logger          logrus.FieldLogger
+	semaphoreCh     chan struct{}
+	fieldKinds      map[string]FieldKind
+	pointWriter     api.WriteAPIBlocking
 }
 
 // New returns new influxdb output
@@ -73,25 +74,27 @@ func newOutput(params output.Params) (*Output, error) {
 	if err != nil {
 		return nil, err
 	}
+	if conf.Bucket.String == "" {
+		return nil, fmt.Errorf("invalid configuration: a Bucket value is required")
+	}
+	if conf.ConcurrentWrites.Int64 <= 0 {
+		return nil, errors.New("influxdb's ConcurrentWrites must be a positive number")
+	}
 	cl, err := MakeClient(conf)
 	if err != nil {
 		return nil, err
-	}
-	batchConf := MakeBatchConfig(conf)
-	if conf.ConcurrentWrites.Int64 <= 0 {
-		return nil, errors.New("influxdb's ConcurrentWrites must be a positive number")
 	}
 	fldKinds, err := MakeFieldKinds(conf)
 	return &Output{
 		params: params,
 		logger: params.Logger.WithFields(logrus.Fields{
-			"output": "InfluxDBv1",
+			"output": "InfluxDBv2",
 		}),
 		Client:      cl,
 		Config:      conf,
-		BatchConf:   batchConf,
 		semaphoreCh: make(chan struct{}, conf.ConcurrentWrites.Int64),
 		fieldKinds:  fldKinds,
+		pointWriter: cl.WriteAPIBlocking(conf.Organization.String, conf.Bucket.String),
 	}, err
 }
 
@@ -121,17 +124,14 @@ func (o *Output) extractTagsToValues(tags map[string]string, values map[string]i
 	return values
 }
 
-func (o *Output) batchFromSamples(containers []stats.SampleContainer) (client.BatchPoints, error) {
-	batch, err := client.NewBatchPoints(o.BatchConf)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't make a batch: %w", err)
-	}
-
+func (o *Output) batchFromSamples(containers []stats.SampleContainer) []*write.Point {
 	type cacheItem struct {
 		tags   map[string]string
 		values map[string]interface{}
 	}
 	cache := map[*stats.SampleTags]cacheItem{}
+
+	var points []*write.Point
 	for _, container := range containers {
 		samples := container.GetSamples()
 		for _, sample := range samples {
@@ -148,37 +148,33 @@ func (o *Output) batchFromSamples(containers []stats.SampleContainer) (client.Ba
 				cache[sample.Tags] = cacheItem{tags, values}
 			}
 			values["value"] = sample.Value
-			var p *client.Point
-			p, err = client.NewPoint(
+			p := client.NewPoint(
 				sample.Metric.Name,
 				tags,
 				values,
 				sample.Time,
 			)
-			if err != nil {
-				return nil, fmt.Errorf("couldn't make point from sample: %w", err)
-			}
-			batch.AddPoint(p)
+			points = append(points, p)
 		}
 	}
 
-	return batch, nil
+	return points
 }
 
 // Description returns a human-readable description of the output.
 func (o *Output) Description() string {
-	return fmt.Sprintf("InfluxDBv1 (%s)", o.Config.Addr.String)
+	return fmt.Sprintf("InfluxDBv2 (%s)", o.Config.Addr.String)
 }
 
 // Start tries to open the specified JSON file and starts the goroutine for
 // metric flushing. If gzip encoding is specified, it also handles that.
 func (o *Output) Start() error {
 	o.logger.Debug("Starting...")
-	// Try to create the database if it doesn't exist. Failure to do so is USUALLY harmless; it
-	// usually means we're either a non-admin user to an existing DB or connecting over UDP.
-	_, err := o.Client.Query(client.NewQuery("CREATE DATABASE "+o.BatchConf.Database, "", ""))
-	if err != nil {
-		o.logger.WithError(err).Debug("InfluxDB: Couldn't create database; most likely harmless")
+
+	if o.Config.Organization.String != "" && o.Config.Bucket.String != "" {
+		if err := o.createBucket(); err != nil {
+			return fmt.Errorf("is not possible to create or find the specified Bucket: %w", err)
+		}
 	}
 
 	pf, err := output.NewPeriodicFlusher(time.Duration(o.Config.PushInterval.Duration), o.flushMetrics)
@@ -196,11 +192,46 @@ func (o *Output) Stop() error {
 	o.logger.Debug("Stopping...")
 	defer o.logger.Debug("Stopped!")
 	o.periodicFlusher.Stop()
+	o.Client.Close()
+	return nil
+}
+
+// createBucket creates the configured bucket if it doesn't exist
+func (o *Output) createBucket() error {
+	ctx := context.Background()
+
+	org, err := o.Client.OrganizationsAPI().FindOrganizationByName(ctx, o.Config.Organization.String)
+	if err != nil {
+		return err
+	}
+
+	buckets := o.Client.BucketsAPI()
+	_, err = buckets.FindBucketByName(ctx, o.Config.Bucket.String)
+	if err == nil {
+		// the bucket already exists
+		return nil
+	}
+
+	// TODO: can we do a better check?
+	if err.Error() != fmt.Sprintf("bucket '%s' not found", o.Config.Bucket.String) {
+		return err
+	}
+
+	// create a bucket with the default (infinite) retention policy
+	_, err = o.Client.BucketsAPI().CreateBucketWithName(ctx, org, o.Config.Bucket.String)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (o *Output) flushMetrics() {
 	samples := o.GetBufferedSamples()
+	if len(samples) == 0 {
+		o.logger.Debug("Any buffered samples, skipping the flush operation")
+		return
+	}
 
 	o.semaphoreCh <- struct{}{}
 	defer func() {
@@ -209,17 +240,12 @@ func (o *Output) flushMetrics() {
 	o.logger.Debug("Committing...")
 	o.logger.WithField("samples", len(samples)).Debug("Writing...")
 
-	batch, err := o.batchFromSamples(samples)
-	if err != nil {
-		o.logger.WithError(err).Error("Couldn't create batch from samples")
-		return
-	}
+	batch := o.batchFromSamples(samples)
+	o.logger.WithField("points", len(batch)).Debug("Writing...")
 
-	o.logger.WithField("points", len(batch.Points())).Debug("Writing...")
 	startTime := time.Now()
-	if err := o.Client.Write(batch); err != nil {
+	if err := o.pointWriter.WritePoint(context.Background(), batch...); err != nil {
 		o.logger.WithError(err).Error("Couldn't write stats")
 	}
-	t := time.Since(startTime)
-	o.logger.WithField("t", t).Debug("Batch written!")
+	o.logger.WithField("t", time.Since(startTime)).Debug("Batch written!")
 }
