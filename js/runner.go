@@ -768,49 +768,9 @@ func (u *VU) runFn(
 	if u.Runner.Bundle.Options.NoVUConnectionReuse.Bool {
 		u.Transport.CloseIdleConnections()
 	}
-	// TODO move this to a function or something
-	bytesWritten, bytesRead := u.Dialer.GetBytes()
-	tags := stats.NewSampleTags(u.state.Tags)
-	samples := []stats.Sample{
-		{
-			Time:   endTime,
-			Metric: u.Runner.builtinMetrics.DataSent,
-			Value:  float64(bytesWritten),
-			Tags:   tags,
-		},
-		{
-			Time:   endTime,
-			Metric: u.Runner.builtinMetrics.DataReceived,
-			Value:  float64(bytesRead),
-			Tags:   tags,
-		},
-	}
-	if isFullIteration {
-		samples = append(samples, stats.Sample{
-			Time:   endTime,
-			Metric: u.Runner.builtinMetrics.IterationDuration,
-			Value:  stats.D(endTime.Sub(startTime)),
-			Tags:   tags,
-		})
-		if isDefault {
-			samples = append(samples, stats.Sample{
-				Time:   endTime,
-				Metric: u.Runner.builtinMetrics.Iterations,
-				Value:  1,
-				Tags:   tags,
-			})
-		}
-	}
 
-	u.state.Samples <- &netext.NetTrail{
-		BytesRead:     bytesRead,
-		BytesWritten:  bytesWritten,
-		FullIteration: isFullIteration,
-		StartTime:     startTime,
-		EndTime:       endTime,
-		Tags:          tags,
-		Samples:       samples,
-	}
+	u.state.Samples <- u.Dialer.GetTrail(
+		startTime, endTime, isFullIteration, isDefault, stats.NewSampleTags(u.state.Tags), u.Runner.builtinMetrics)
 
 	return v, isFullIteration, endTime.Sub(startTime), err
 }

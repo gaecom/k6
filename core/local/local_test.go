@@ -1240,23 +1240,11 @@ func TestRealTimeAndSetupTeardownMetrics(t *testing.T) {
 	getDummyTrail := func(group string, emitIterations bool, addExpTags ...string) stats.SampleContainer {
 		expTags := []string{"group", group}
 		expTags = append(expTags, addExpTags...)
-		t := time.Now()
-		tags := getTags(expTags...)
-		samples := []stats.Sample{
-			builtinMetrics.DataSent.Emit(t, tags, 0),
-			builtinMetrics.DataReceived.Emit(t, tags, 0),
-			builtinMetrics.IterationDuration.Emit(t, tags, 0),
-		}
-		if emitIterations {
-			samples = append(samples, builtinMetrics.Iterations.Emit(t, tags, 1))
-		}
-		return &netext.NetTrail{
-			Tags:          tags,
-			StartTime:     t,
-			EndTime:       t,
-			FullIteration: true,
-			Samples:       samples,
-		}
+		return netext.NewDialer(
+			net.Dialer{},
+			netext.NewResolver(net.LookupIP, 0, types.DNSfirst, types.DNSpreferIPv4),
+		).GetTrail(time.Now(), time.Now(),
+			true, emitIterations, getTags(expTags...), builtinMetrics)
 	}
 
 	// Initially give a long time (5s) for the execScheduler to start
