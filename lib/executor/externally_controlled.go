@@ -502,7 +502,7 @@ func (rs *externallyControlledRunState) handleConfigChange(oldCfg, newCfg Extern
 // until the test is manually stopped.
 // nolint:funlen,gocognit,cyclop
 func (mex *ExternallyControlled) Run(
-	parentCtx context.Context, out chan<- stats.SampleContainer, builtinMetrics *metrics.BuiltinMetrics,
+	parentCtx context.Context, out chan<- stats.SampleContainer, _ *metrics.BuiltinMetrics,
 ) (err error) {
 	mex.configLock.RLock()
 	// Safely get the current config - it's important that the close of the

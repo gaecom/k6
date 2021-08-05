@@ -499,7 +499,7 @@ var _ lib.Executor = &RampingVUs{}
 // and see what happens)... :/ so maybe see how it can be split?
 // nolint:funlen,gocognit,cyclop
 func (vlv RampingVUs) Run(
-	parentCtx context.Context, out chan<- stats.SampleContainer, builtinMetrics *metrics.BuiltinMetrics,
+	parentCtx context.Context, out chan<- stats.SampleContainer, _ *metrics.BuiltinMetrics,
 ) (err error) {
 	rawExecutionSteps := vlv.config.getRawExecutionSteps(vlv.executionState.ExecutionTuple, true)
 	regularDuration, isFinal := lib.GetEndOffset(rawExecutionSteps)

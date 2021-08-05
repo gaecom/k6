@@ -144,7 +144,7 @@ var _ lib.Executor = &ConstantVUs{}
 // Run constantly loops through as many iterations as possible on a fixed number
 // of VUs for the specified duration.
 func (clv ConstantVUs) Run(
-	parentCtx context.Context, out chan<- stats.SampleContainer, builtinMetrics *metrics.BuiltinMetrics,
+	parentCtx context.Context, out chan<- stats.SampleContainer, _ *metrics.BuiltinMetrics,
 ) (err error) {
 	numVUs := clv.config.GetVUs(clv.executionState.ExecutionTuple)
 	duration := time.Duration(clv.config.Duration.Duration)
