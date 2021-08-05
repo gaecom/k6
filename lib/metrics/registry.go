@@ -66,11 +66,11 @@ func (r *Registry) NewMetric(name string, typ stats.MetricType, t ...stats.Value
 		return m, nil
 	}
 	if oldMetric.Type != typ {
-		return nil, fmt.Errorf("metric `%s` already exist but with type %s, instead of %s", name, oldMetric.Type, typ)
+		return nil, fmt.Errorf("metric '%s' already exists but with type %s, instead of %s", name, oldMetric.Type, typ)
 	}
 	if len(t) > 0 {
 		if t[0] != oldMetric.Contains {
-			return nil, fmt.Errorf("metric `%s` already exist but with a value type %s, instead of %s",
+			return nil, fmt.Errorf("metric '%s' already exists but with a value type %s, instead of %s",
 				name, oldMetric.Contains, t[0])
 		}
 	}
