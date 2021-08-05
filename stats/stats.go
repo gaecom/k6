@@ -450,8 +450,8 @@ type Metric struct {
 	Sink       Sink         `json:"-"`
 }
 
-// Emit a sample for the metric at the given time, with the provided tags and values
-func (m *Metric) Emit(t time.Time, tags *SampleTags, value float64) Sample {
+// Sample samples the metric at the given time, with the provided tags and value
+func (m *Metric) Sample(t time.Time, tags *SampleTags, value float64) Sample {
 	return Sample{
 		Time:   t,
 		Tags:   tags,
