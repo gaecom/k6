@@ -313,7 +313,7 @@ func TestStreamLogsToLogger(t *testing.T) {
 				// send a correct logline so we will able to assert
 				// that the connection is restored as expected
 				// send values in not sorted order to assert that the latest detection is right
-				rawmsg := json.RawMessage(fmt.Sprintf(`{"streams":[{"stream":{"key":"stream1","level":"warn"},"values":[["%d","second logline"],["%d","newest logline"],["%d","oldest logline"]]}],"dropped_entities":[]}`, t1, t2, t0))
+				rawmsg := json.RawMessage(fmt.Sprintf(`{"streams":[{"stream":{"key":"stream1","level":"warn"},"values":[["%d","second logline"],["%d","newest logline"],["%d","oldest logline"]]}],"dropped_entities":[]}`, t2, t1, t0))
 				err = conn.WriteJSON(rawmsg)
 				require.NoError(t, err)
 
