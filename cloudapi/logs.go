@@ -51,21 +51,17 @@ type msgStreams struct {
 	Values [][2]string       `json:"values"` // this can be optimized
 }
 
-func (ms msgStreams) LatestTimestamp() (ts int64) {
+func (ms *msgStreams) LatestTimestamp() int64 {
 	if len(ms.Values) < 1 {
-		return
+		return 0
 	}
-	for i := 0; i < len(ms.Values); i++ {
-		raw := ms.Values[i][0]
-		unix, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil {
-			return
-		}
-		if unix > ts {
-			ts = unix
-		}
+	// a Stream is sort by timestamp in descending order
+	raw := ms.Values[0][0]
+	unix, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0
 	}
-	return
+	return unix
 }
 
 //easyjson:json
@@ -178,6 +174,11 @@ func (c *Config) StreamLogsToLogger(
 			}
 			m.Log(logger)
 
+			// It find the most recent timestamp overall Streams.
+			// For optimal solution, it should check also into DroppedEntries,
+			// but it means that the client or Loki is not processing
+			// the high amount of logs as fast as required.
+			// So it will probably continue to drop logs in the future.
 			var ts int64
 			for _, stream := range m.Streams {
 				sts := stream.LatestTimestamp()
@@ -200,6 +201,14 @@ func (c *Config) StreamLogsToLogger(
 		if err != nil {
 			logger.WithError(err).Warn("error reading a log message from the cloud, trying to establish a fresh connection with the logs service...") //nolint:lll
 
+			// TODO: avoid the "logical" race condition
+			// The case explained:
+			// * The msgBuffer consumer is slow
+			// * ReadMessage is fast and adds at least one more message in the buffer
+			// * An error is got in the meantime and the re-dialing procedure is tried
+			// * Then the latest timestamp used will not be the real latest received
+			// * because it is still waiting to be processed.
+			// In the case the connection will be restored then the first message will be a duplicate.
 			newconn, errd := c.logtailConn(ctx, referenceID, latest.TimeOrNow())
 			if errd == nil {
 				mconn.Lock()
