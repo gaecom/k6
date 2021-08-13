@@ -275,21 +275,9 @@ a commandline interface for interacting with it.`,
 
 			// Start the test run
 			initBar.Modify(pb.WithConstProgress(0, "Starting test..."))
-			var interrupt error
-			err = engineRun()
-			if err != nil {
-				if common.IsInterruptError(err) {
-					interrupt = err
-				}
-				if !conf.Linger.Bool {
-					if interrupt == nil {
-						return errext.WithExitCodeIfNone(err, exitcodes.GenericEngine)
-					}
-					return errext.WithExitCodeIfNone(interrupt, exitcodes.ScriptException)
-				}
-			}
+			// A run error is handled below, after the end-of-test summary is processed.
+			runErr := engineRun()
 			runCancel()
-			logger.Debug("Engine run terminated cleanly")
 
 			progressCancel()
 			progressBarWG.Wait()
@@ -331,16 +319,24 @@ a commandline interface for interacting with it.`,
 					logger.Debug("Ctrl+C received, exiting...")
 				}
 			}
+
 			globalCancel() // signal the Engine that it should wind down
 			logger.Debug("Waiting for engine processes to finish...")
 			engineWait()
 			logger.Debug("Everything has finished, exiting k6!")
-			if interrupt != nil {
-				return errext.WithExitCodeIfNone(interrupt, exitcodes.ScriptException)
+
+			if runErr != nil {
+				if common.IsInterruptError(runErr) {
+					return errext.WithExitCodeIfNone(runErr, exitcodes.ScriptException)
+				}
+				return errext.WithExitCodeIfNone(runErr, exitcodes.GenericEngine)
 			}
+
 			if engine.IsTainted() {
 				return errext.WithExitCodeIfNone(errors.New("some thresholds have failed"), exitcodes.ThresholdsHaveFailed)
 			}
+			logger.Debug("Engine run terminated cleanly")
+
 			return nil
 		},
 	}
