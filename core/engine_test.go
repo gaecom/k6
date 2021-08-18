@@ -765,8 +765,8 @@ func TestSetupException(t *testing.T) {
 		require.Error(t, err)
 		var exception errext.Exception
 		require.ErrorAs(t, err, &exception)
-		require.Equal(t, "Error: baz\n\tat baz (file:///bar.js:7:8(4))\n"+
-			"\tat file:///bar.js:4:5(3)\n\tat setup (file:///script.js:7:204(4))\n",
+		require.Equal(t, "Error: baz\n\tat baz (file:///bar.js:6:8(4))\n"+
+			"\tat file:///bar.js:3:5(3)\n\tat setup (file:///script.js:7:204(4))\n",
 			err.Error())
 	}
 }

@@ -134,7 +134,7 @@ func TestInitContextRequire(t *testing.T) {
 		t.Run("Error", func(t *testing.T) {
 			t.Parallel()
 			fs := afero.NewMemMapFs()
-			assert.NoError(t, afero.WriteFile(fs, "/file.js", []byte(`throw new Error("aaaa")`), 0o755))
+			assert.NoError(t, afero.WriteFile(fs, "/file.js", []byte("\nthrow new Error(\"aaaa\")"), 0o755))
 			_, err := getSimpleBundle(t, "/script.js", `import "/file.js"; export default function() {}`, fs)
 			assert.EqualError(t, err, "Error: aaaa\n\tat file:///file.js:2:7(4)\n\tat reflect.methodValueCall (native)\n\tat file:///script.js:1:117(14)\n")
 		})

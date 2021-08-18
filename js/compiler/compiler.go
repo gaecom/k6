@@ -253,7 +253,7 @@ func (b *babel) transformImpl(
 		opts[k] = v
 	}
 	if sourceMapsEnabled {
-		opts["retainLines"] = false // this helps for some reason
+		// opts["retainLines"] = false // this helps for some reason
 		opts["sourceMaps"] = true
 		if inputSrcMap != nil {
 			srcMap := new(map[string]interface{})
@@ -281,7 +281,7 @@ func (b *babel) transformImpl(
 		return code, nil, nil
 	}
 
-	code += "\n//# sourceMappingURL=/this" // TODO better
+	code += "\n//# sourceMappingURL=file:///this" // TODO better
 	stringify, err := b.vm.RunString("(function(m) { return JSON.stringify(m)})")
 	if err != nil {
 		return code, nil, err
