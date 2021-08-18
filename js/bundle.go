@@ -83,7 +83,7 @@ func NewBundle(
 	c.COpts = compiler.CompilerOptions{
 		CompatibilityMode: compatMode,
 		Strict:            true,
-		SourceMapEnabled:  rtOpts.SourceMapEnabled.Bool,
+		SourceMapEnabled:  true,
 		SourceMapLoader: func(path string) ([]byte, error) {
 			u, err := url.Parse(path)
 			if err != nil {
@@ -150,7 +150,7 @@ func NewBundleFromArchive(logger logrus.FieldLogger, arc *lib.Archive, rtOpts li
 	c.COpts = compiler.CompilerOptions{
 		Strict:            true,
 		CompatibilityMode: compatMode,
-		SourceMapEnabled:  rtOpts.SourceMapEnabled.Bool,
+		SourceMapEnabled:  true,
 		SourceMapLoader: func(path string) ([]byte, error) {
 			u, err := url.Parse(path)
 			if err != nil {

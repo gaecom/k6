@@ -139,7 +139,9 @@ func (c *Compiler) Compile(src, filename string, main bool, cOpts CompilerOption
 	return c.compileImpl(src, filename, main, cOpts, nil)
 }
 
-func (c *Compiler) compileImpl(src, filename string, main bool, cOpts CompilerOptions, externalSrcMap []byte) (*goja.Program, string, error) {
+func (c *Compiler) compileImpl(
+	src, filename string, main bool, cOpts CompilerOptions, externalSrcMap []byte,
+) (*goja.Program, string, error) {
 	code := src
 	if !main {
 		// TODO this also will require sourcemap for exact first line positions but I think that isn't necessary

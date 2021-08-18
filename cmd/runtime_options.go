@@ -58,7 +58,6 @@ func runtimeOptionFlagSet(includeSysEnv bool) *pflag.FlagSet {
 	flags := pflag.NewFlagSet("", 0)
 	flags.SortFlags = false
 	flags.Bool("include-system-env-vars", includeSysEnv, "pass the real system environment variables to the runtime")
-	flags.Bool("source-map-enabled", false, "load and generate source maps when compiling js files that have them")
 	flags.String("compatibility-mode", "extended",
 		`JavaScript compiler compatibility mode, "extended" or "base"
 base: pure Golang JS VM supporting ES5.1+
@@ -97,7 +96,6 @@ func getRuntimeOptions(flags *pflag.FlagSet, environment map[string]string) (lib
 	// TODO: get these options out of the JSON config file as well?
 	opts := lib.RuntimeOptions{
 		IncludeSystemEnvVars: getNullBool(flags, "include-system-env-vars"),
-		SourceMapEnabled:     getNullBool(flags, "source-map-enabled"),
 		CompatibilityMode:    getNullString(flags, "compatibility-mode"),
 		NoThresholds:         getNullBool(flags, "no-thresholds"),
 		NoSummary:            getNullBool(flags, "no-summary"),
@@ -116,9 +114,6 @@ func getRuntimeOptions(flags *pflag.FlagSet, environment map[string]string) (lib
 		return opts, err
 	}
 
-	if err := saveBoolFromEnv(environment, "K6_SOURCE_MAP_ENABLED", &opts.SourceMapEnabled); err != nil {
-		return opts, err
-	}
 	if err := saveBoolFromEnv(environment, "K6_INCLUDE_SYSTEM_ENV_VARS", &opts.IncludeSystemEnvVars); err != nil {
 		return opts, err
 	}
