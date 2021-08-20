@@ -84,17 +84,7 @@ func NewBundle(
 		CompatibilityMode: compatMode,
 		Strict:            true,
 		SourceMapEnabled:  true,
-		SourceMapLoader: func(path string) ([]byte, error) {
-			u, err := url.Parse(path)
-			if err != nil {
-				return nil, err
-			}
-			data, err := loader.Load(logger, filesystems, u, path)
-			if err != nil {
-				return nil, err
-			}
-			return data.Data, nil
-		},
+		SourceMapLoader:   generateSourceMapLoader(logger, filesystems),
 	}
 	pgm, _, err := c.Compile(code, src.URL.String(), true, c.COpts)
 	if err != nil {
@@ -136,13 +126,7 @@ func NewBundleFromArchive(logger logrus.FieldLogger, arc *lib.Archive, rtOpts li
 		rtOpts.CompatibilityMode = null.StringFrom(arc.CompatibilityMode)
 	}
 	compatMode, err := lib.ValidateCompatibilityMode(rtOpts.CompatibilityMode.String)
-	/* TODO
-	if !rtOpts.SourceMapEnabled.Valid {
-		// `k6 run --compatibility-mode=whatever archive.tar` should override
-		// whatever value is in the archive
-		rtOpts.SourceMapEnabled = null.BoolFrom(arc.SourceMapEnabled)
-	}
-	*/if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -151,17 +135,7 @@ func NewBundleFromArchive(logger logrus.FieldLogger, arc *lib.Archive, rtOpts li
 		Strict:            true,
 		CompatibilityMode: compatMode,
 		SourceMapEnabled:  true,
-		SourceMapLoader: func(path string) ([]byte, error) {
-			u, err := url.Parse(path)
-			if err != nil {
-				return nil, err
-			}
-			data, err := loader.Load(logger, arc.Filesystems, u, path)
-			if err != nil {
-				return nil, err
-			}
-			return data.Data, nil
-		},
+		SourceMapLoader:   generateSourceMapLoader(logger, arc.Filesystems),
 	}
 	pgm, _, err := c.Compile(string(arc.Data), arc.FilenameURL.String(), true, c.COpts)
 	if err != nil {
@@ -365,4 +339,19 @@ func (b *Bundle) instantiate(logger logrus.FieldLogger, rt *goja.Runtime, init *
 	rt.SetRandSource(common.NewRandSource())
 
 	return nil
+}
+
+func generateSourceMapLoader(logger logrus.FieldLogger, filesystems map[string]afero.Fs,
+) func(path string) ([]byte, error) {
+	return func(path string) ([]byte, error) {
+		u, err := url.Parse(path)
+		if err != nil {
+			return nil, err
+		}
+		data, err := loader.Load(logger, filesystems, u, path)
+		if err != nil {
+			return nil, err
+		}
+		return data.Data, nil
+	}
 }
