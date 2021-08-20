@@ -77,7 +77,7 @@ func TestTransform(t *testing.T) {
 		src, _, err := c.Transform("()=> true", "test.js", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, `"use strict";() => true;
-//# sourceMappingURL=file:///this`, src)
+//# sourceMappingURL=k6://internal-should-not-leak/file.map`, src)
 		// assert.Equal(t, 3, srcmap.Version)
 		// assert.Equal(t, "test.js", srcmap.File)
 		// assert.Equal(t, "aAAA,qBAAK,IAAL", srcmap.Mappings)
