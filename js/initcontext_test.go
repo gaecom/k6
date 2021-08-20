@@ -574,3 +574,38 @@ func TestInitContextVU(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), v.Export())
 }
+
+func TestSourceMaps(t *testing.T) {
+	t.Parallel()
+	logger := testutils.NewLogger(t)
+	fs := afero.NewMemMapFs()
+	assert.NoError(t, afero.WriteFile(fs, "/module1.js", []byte(`
+export function f2(){
+    throw "exception in line 2"
+    console.log("in f2")
+}
+export function f1(){
+    throw "exception in line 6"
+    console.log("in f1")
+}
+`[1:]), 0o644))
+	data := `
+import * as module1 from "./module1.js"
+
+export default function(){
+//    throw "exception in line 4"
+    module1.f2()
+    console.log("in default")
+}
+`[1:]
+	b, err := getSimpleBundle(t, "/script.js", data, fs)
+	require.NoError(t, err)
+
+	bi, err := b.Instantiate(logger, 0)
+	require.NoError(t, err)
+	_, err = bi.exports[consts.DefaultFn](goja.Undefined())
+	require.Error(t, err)
+	exception := new(goja.Exception)
+	require.ErrorAs(t, err, &exception)
+	require.Equal(t, exception.String(), "exception in line 2\n\tat f2 (file:///module1.js:2:10(2))\n\tat file:///script.js:5:4(4)\n")
+}
